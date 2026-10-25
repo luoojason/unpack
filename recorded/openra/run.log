@@ -1,0 +1,19 @@
+decompiled OpenRA.Game 578 files
+decompiled OpenRA.Mods.Common 1939 files
+decompiled OpenRA.Mods.Cnc 239 files
+decompiled OpenRA.Mods.D2k 33 files
+decompiled OpenRA.Platforms.Default 30 files
+decompiled OpenRA.Server 1 files
+decompiled OpenRA.Utility 2 files
+build OpenRA.Game round 0 errors 6
+ctor-attribute restored on OpenRA.Mods.Common.Widgets.Logic.Ingame.CycleStatusBarsHotkeyLogic
+build OpenRA.Mods.Common round 0 errors 42
+build OpenRA.Mods.Common round 1 errors 2
+build OpenRA.Mods.Cnc round 0 errors 11
+check OpenRA's own test suite True
+check Red Alert rules and maps True
+check Tiberian Dawn rules and maps True
+check Dune 2000 rules and maps True
+check Unit documentation export True
+check Scripting API listing False
+similarity 0.7275349800417995 0.734493426140758 1353

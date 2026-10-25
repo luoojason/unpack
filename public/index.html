@@ -1,0 +1,772 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Unpack</title>
+<meta name="description" content="Drop in a compiled program. Unpack rebuilds the project and measures how close the copy is.">
+<meta name="color-scheme" content="light">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@500;600;700&family=Inter:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/@phosphor-icons/web@2.1.1"></script>
+<style>
+/* One theme (light), one shape scale: panels 28px, cards 16px, buttons and chips fully round. */
+:root{
+  --bg:#eeedeb; --surface:#ffffff; --surface2:#f6f5f3; --line:rgba(11,11,11,.09); --line2:rgba(11,11,11,.16);
+  --text:#0b0b0b; --soft:#3f3e3b; --mute:#77756f;
+  --accent:#f2603a; --ok:#1c8a5a; --bad:#c23a2b;
+  --screen:#0a0a0b; --screen-line:#232326;
+  --head:'Inter Tight','Inter',system-ui,sans-serif; --sans:'Inter',system-ui,sans-serif; --mono:'Geist Mono',ui-monospace,Consolas,monospace;
+  --R:28px; --r:16px;
+  --shadow:0 30px 80px -30px rgba(40,30,20,.35);
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:90px}
+body{margin:0;background:var(--bg);color:var(--text);font:17px/1.6 var(--sans);-webkit-font-smoothing:antialiased;
+  background-image:radial-gradient(70% 50% at 50% -5%,#fff 0%,rgba(255,255,255,0) 70%),radial-gradient(40% 30% at 85% 12%,rgba(242,96,58,.10),transparent 70%),radial-gradient(40% 30% at 12% 20%,rgba(255,196,120,.16),transparent 70%);
+  background-repeat:no-repeat}
+::selection{background:var(--text);color:var(--bg)}
+a{color:inherit}
+p{margin:0}
+.wrap{max-width:1120px;margin:0 auto;padding:0 24px}
+i.ph{vertical-align:-.12em}
+h1,h2,h3{font-family:var(--head);margin:0;font-weight:700;letter-spacing:-.045em;line-height:1.02}
+h2{font-size:clamp(34px,5vw,60px)}
+.center{text-align:center}
+.lead{color:var(--soft);font-size:19px;max-width:56ch;margin:18px auto 0}
+.sec{padding:140px 0 0}
+
+/* floating pill nav */
+header{position:fixed;top:14px;left:0;right:0;z-index:50;display:flex;justify-content:center;pointer-events:none}
+.pill-nav{pointer-events:auto;display:flex;align-items:center;gap:26px;padding:8px 8px 8px 16px;border-radius:999px;background:rgba(255,255,255,.72);backdrop-filter:blur(16px) saturate(1.4);border:1px solid rgba(255,255,255,.8);box-shadow:0 8px 30px -12px rgba(40,30,20,.25)}
+.brand{display:flex;align-items:center;gap:9px;font:700 16px var(--head);letter-spacing:-.02em;text-decoration:none}
+.brand .mark{width:26px;height:26px;border-radius:8px;background:var(--text);color:#fff;display:grid;place-items:center;font-size:14px}
+.pill-nav a.l{font-size:14px;color:var(--soft);text-decoration:none;transition:color .15s}
+.pill-nav a.l:hover{color:var(--text)}
+@media(max-width:700px){.pill-nav a.l{display:none}.pill-nav{gap:14px}}
+
+/* buttons */
+.btn{font:500 15px/1 var(--sans);display:inline-flex;align-items:center;gap:9px;padding:15px 24px;border-radius:999px;border:1px solid var(--line2);background:rgba(255,255,255,.6);color:var(--text);cursor:pointer;text-decoration:none;white-space:nowrap;transition:transform .15s,background .15s,box-shadow .15s}
+.btn:hover{background:#fff;box-shadow:0 8px 24px -12px rgba(40,30,20,.35)}
+.btn:active{transform:scale(.97)}
+.btn.primary{background:var(--text);border-color:var(--text);color:#fff;font-weight:600}
+.btn.primary:hover{background:#262625;box-shadow:0 12px 30px -10px rgba(0,0,0,.5)}
+.btn.sm{padding:11px 18px;font-size:14px}
+.btn:focus-visible,summary:focus-visible,.drop:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+
+/* hero */
+.hero{padding:170px 0 0;text-align:center}
+.hero .tag{display:inline-flex;align-items:center;gap:8px;font:500 15px var(--sans);color:var(--soft);margin-bottom:22px}
+.hero h1{font-size:clamp(52px,9vw,112px);letter-spacing:-.055em;line-height:.96}
+.hero p.sub{color:var(--soft);font-size:20px;max-width:46ch;margin:26px auto 34px}
+.hero .facts{display:flex;gap:26px;justify-content:center;flex-wrap:wrap;margin-top:22px;font-size:13px;color:var(--mute)}
+.stage{margin:72px auto 0;max-width:880px;position:relative}
+.stage::before{content:"";position:absolute;inset:-40px -60px auto;height:70%;background:radial-gradient(50% 60% at 50% 0%,rgba(242,96,58,.20),transparent 70%);filter:blur(30px);z-index:-1}
+.xray{border-radius:var(--R);background:var(--screen);box-shadow:var(--shadow);overflow:hidden;text-align:left;border:1px solid #1d1d20}
+.xray .bar{display:flex;justify-content:space-between;padding:14px 20px;border-bottom:1px solid var(--screen-line);font:500 12px var(--mono);color:#85858b}
+.xray .grid2{display:grid;grid-template-columns:1fr 1fr}
+.xray pre{margin:0;padding:22px 24px;font:13.5px/1.7 var(--mono);height:360px;overflow:hidden;color:#d4d3ce;white-space:pre}
+.xray pre b{color:var(--accent);font-weight:500}
+.xray .foot{display:flex;gap:10px;align-items:center;padding:14px 20px;border-top:1px solid var(--screen-line);font:12px var(--mono);color:#85858b}
+.xray .foot i{color:#4cc38a}
+@media(max-width:700px){.hero{padding-top:130px}.xray pre{height:280px;font-size:12px}}
+
+
+/* hero backdrop: layered misty ridges generated in code, faded into the page */
+main{position:relative}
+.heroBg{position:absolute;top:0;left:0;right:0;height:min(880px,92vw);z-index:-1;pointer-events:none;overflow:hidden;
+  -webkit-mask-image:linear-gradient(to bottom,#000 0%,#000 52%,transparent 100%);mask-image:linear-gradient(to bottom,#000 0%,#000 52%,transparent 100%)}
+.heroBg .bgsvg{width:100%;min-width:1100px;height:100%;display:block;position:absolute;left:50%;transform:translateX(-50%)}
+@media(prefers-reduced-motion:no-preference){.heroBg .bgsvg{animation:drift 40s ease-in-out infinite alternate}}
+@keyframes drift{from{transform:translateX(-50%) scale(1)}to{transform:translateX(-50%) scale(1.04)}}
+
+/* chips */
+.chips{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-top:30px}
+.chip{font:500 14px var(--sans);padding:9px 16px;border-radius:999px;background:rgba(255,255,255,.75);border:1px solid rgba(255,255,255,.9);color:var(--soft)}
+
+/* app */
+.app{margin:56px auto 0;max-width:1000px;border-radius:var(--R);background:var(--surface);box-shadow:var(--shadow);overflow:hidden;border:1px solid rgba(255,255,255,.9)}
+.app .top{display:flex;justify-content:space-between;align-items:center;padding:16px 26px;border-bottom:1px solid var(--line);font:12px var(--mono);color:var(--mute)}
+.app .body{padding:30px}
+.drop{border:1.5px dashed var(--line2);border-radius:var(--r);padding:56px 24px;text-align:center;cursor:pointer;transition:border-color .2s,background .2s;background:var(--surface2)}
+.drop:hover,.drop.over{border-color:var(--text);background:#fff}
+.drop .ic{font-size:36px;color:var(--text)}
+.drop h3{font-size:30px;margin:12px 0 8px}
+.drop p{color:var(--soft);font-size:16px}
+.drop .row{display:flex;gap:12px;justify-content:center;margin-top:26px;flex-wrap:wrap}
+.hint{margin-top:14px;color:var(--mute);font-size:14px}
+#line{display:none;margin-top:28px}
+.stations{display:grid;grid-template-columns:repeat(6,1fr);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.st{padding:16px;border-right:1px solid var(--line);position:relative;min-height:108px;background:var(--surface)}
+.st:last-child{border-right:0}
+.st .n{font:500 11px var(--mono);color:var(--mute);display:flex;align-items:center;gap:6px}
+.st .t{font:600 16px var(--head);letter-spacing:-.02em;margin:8px 0 4px}
+.st .d{font:11.5px/1.4 var(--mono);color:var(--mute);overflow-wrap:anywhere}
+.st::after{content:"";position:absolute;left:0;bottom:0;height:3px;width:0;background:var(--text);transition:width .4s}
+.st.running::after{width:100%;background:linear-gradient(90deg,var(--accent),transparent);background-size:200px;animation:sw 1.1s linear infinite}
+.st.done::after{width:100%;background:var(--ok)}.st.failed::after{width:100%;background:var(--bad)}
+.st.pending{opacity:.45}
+.st.done .n i{color:var(--ok)}.st.failed .n i{color:var(--bad)}
+@keyframes sw{from{background-position:-200px 0}to{background-position:200px 0}}
+.err{margin-top:12px;color:var(--bad);font:13px var(--mono)}
+@media(max-width:860px){.stations{grid-template-columns:repeat(2,1fr)}.st{border-bottom:1px solid var(--line)}}
+
+#result{display:none;margin-top:40px}
+.resh{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:20px}
+.resh h3{font-size:34px}
+.score{display:grid;grid-template-columns:240px 1fr;gap:28px;align-items:center;border-radius:var(--r);padding:26px;background:var(--surface2)}
+.ring{position:relative;width:200px;height:200px;margin:auto}
+.ring svg{transform:rotate(-90deg)}
+.ring .bg{stroke:var(--line2)}.ring .fg{stroke:var(--accent);transition:stroke-dashoffset 1.4s cubic-bezier(.2,.8,.2,1)}
+.ring .num{position:absolute;inset:0;display:grid;place-items:center;text-align:center}
+.ring .num b{font:700 58px/1 var(--head);letter-spacing:-.05em}.ring .num span{font:11px var(--mono);color:var(--mute);display:block;margin-top:4px}
+.metrics{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+.met{padding:18px;border-radius:14px;background:var(--surface)}
+.met b{display:block;font:700 36px/1 var(--head);letter-spacing:-.04em}
+.met b.ok{color:var(--ok)}.met b.warn{color:#c8561f}.met b.bad{color:var(--bad)}
+.met span{font-size:13px;color:var(--mute)}
+@media(max-width:760px){.score{grid-template-columns:1fr}}
+.sub2{margin:44px 0 6px;font:700 28px var(--head);letter-spacing:-.04em}
+.sub2+p{color:var(--soft);margin-bottom:18px;font-size:16px}
+.arena{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.screen{background:var(--screen);color:#ecebe7;border-radius:var(--r);position:relative;overflow:hidden;border:1px solid var(--screen-line)}
+.screen.reb{border-color:var(--accent);box-shadow:0 0 0 4px rgba(242,96,58,.15)}
+.screen .bar{display:flex;justify-content:space-between;padding:11px 16px;border-bottom:1px solid var(--screen-line);font:500 11px var(--mono);color:#85858b}
+.screen .bar em{font-style:normal;color:var(--accent)}
+.frame{padding:18px 12px 10px;font:500 clamp(11px,1.8vw,18px)/1.15 var(--mono);white-space:pre;text-align:center;min-height:236px;letter-spacing:.35em}
+.frame .h{color:var(--accent)}.frame .b{color:#ecebe7}.frame .f{color:#ffd23f}.frame .e{color:#3b3e46}
+.frame .sc{display:block;letter-spacing:.06em;margin-top:10px;font-size:12px;color:#85858b}
+.overlay{position:absolute;inset:40px 0 0 0;display:grid;place-items:center;background:rgba(10,10,11,.86);text-align:center;padding:16px;font:600 20px var(--head)}
+.overlay small{display:block;font:11px var(--mono);color:#85858b;margin-top:8px;font-weight:400}
+.sync{display:flex;align-items:center;justify-content:center;gap:14px;margin:20px 0 12px;font:13px var(--mono);flex-wrap:wrap;color:var(--soft)}
+.pill{padding:7px 14px;border-radius:999px;border:1px solid var(--line2);font-weight:500}
+.pill.ok{background:var(--ok);border-color:var(--ok);color:#fff}.pill.bad{background:var(--bad);border-color:var(--bad);color:#fff}
+.cta{display:flex;gap:12px;flex-wrap:wrap;justify-content:center}
+.pad{display:none;grid-template-columns:repeat(3,64px);gap:6px;justify-content:center;margin-top:12px}
+.pad .btn{justify-content:center;height:54px;padding:0;font-size:20px}.pad .u{grid-column:2}
+@media(hover:none){.pad{display:grid}}
+@media(max-width:760px){.arena{grid-template-columns:1fr}}
+.tabs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.tab{font:500 12px var(--mono);padding:8px 14px;border:1px solid var(--line);border-radius:999px;background:var(--surface);color:var(--soft);cursor:pointer}
+.tab[aria-selected=true]{background:var(--text);color:#fff;border-color:var(--text)}
+.src{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);border:1px solid var(--line);border-radius:var(--r);overflow:hidden;background:var(--surface)}
+.src.solo{grid-template-columns:minmax(0,1fr)}
+.src>div+div{border-left:1px solid var(--line)}
+.src h4{margin:0;padding:11px 16px;border-bottom:1px solid var(--line);font:500 11px var(--mono);color:var(--mute);display:flex;justify-content:space-between;background:var(--surface2)}
+.src h4 em{font-style:normal;color:#c8561f}
+.codepane{margin:0;max-height:480px;overflow:auto;font:12.5px/1.6 var(--mono);padding:10px 0;white-space:pre;tab-size:4;color:var(--soft)}
+.codepane .l{display:block;padding:0 14px 0 52px;position:relative;min-height:1.6em}
+.codepane .l::before{content:attr(data-n);position:absolute;left:0;width:40px;text-align:right;color:var(--mute);opacity:.6}
+.codepane .l.hit{background:rgba(242,96,58,.11)}
+@media(max-width:760px){.src{grid-template-columns:1fr}.src>div+div{border-left:0;border-top:1px solid var(--line)}}
+
+
+.stat{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
+.stat span{font:500 12px var(--mono);padding:7px 12px;border-radius:999px;background:var(--surface2);color:var(--soft)}
+.chk{display:grid;grid-template-columns:28px 1.1fr 1fr 1fr;gap:14px;align-items:start;padding:16px 0;border-top:1px solid var(--line)}
+.chk:last-child{border-bottom:1px solid var(--line)}
+.chk .ic{font-size:20px;margin-top:1px}.chk .ic.ok{color:var(--ok)}.chk .ic.no{color:#c8561f}
+.chk b{display:block;font:600 16px var(--head);letter-spacing:-.02em}
+.chk small{display:block;color:var(--mute);font-size:13px;line-height:1.45;margin-top:3px}
+.chk .v{font:12.5px/1.45 var(--mono);color:var(--soft)}
+.chk .v em{display:block;font:500 10.5px var(--mono);font-style:normal;color:var(--mute);margin-bottom:3px;text-transform:uppercase}
+@media(max-width:760px){.chk{grid-template-columns:28px 1fr}.chk .v{grid-column:2}}
+.rep{display:grid;grid-template-columns:70px 1fr;gap:14px;padding:16px 0;border-top:1px solid var(--line);align-items:start}
+.rep:last-child{border-bottom:1px solid var(--line)}
+.rep .n{font:700 34px/1 var(--head);letter-spacing:-.04em}
+.rep b{display:block;font:600 16px var(--head);letter-spacing:-.02em}
+.rep small{display:block;color:var(--soft);font-size:14px;margin-top:3px}
+.rep .by{display:inline-block;margin-left:8px;font:500 11px var(--mono);padding:2px 8px;border-radius:999px;background:var(--text);color:#fff;vertical-align:2px}
+
+
+/* live engine */
+.live{margin-top:44px;border-radius:var(--R);background:var(--surface);box-shadow:var(--shadow);border:1px solid var(--line);overflow:hidden;text-align:left}
+.live .top{display:flex;justify-content:space-between;padding:14px 22px;border-bottom:1px solid var(--line);font:500 12px var(--mono);color:var(--mute);background:var(--surface2)}
+.live .body{padding:28px}
+.chips{display:flex;flex-wrap:wrap;gap:10px}
+.chip{font:500 14px var(--sans);padding:11px 18px;border-radius:999px;border:1px solid var(--line2);background:var(--surface);cursor:pointer;color:var(--text);transition:background .15s,transform .15s}
+.chip:hover{background:var(--surface2)}.chip:active{transform:scale(.97)}
+.chip[aria-pressed=true]{background:var(--text);color:#fff;border-color:var(--text)}
+.lv{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:22px}
+.lv .col{border:1px solid var(--line);border-radius:var(--r);overflow:hidden;min-width:0}
+.lv .col h4{margin:0;padding:11px 16px;border-bottom:1px solid var(--line);background:var(--surface2);font:500 11px var(--mono);color:var(--mute);display:flex;justify-content:space-between}
+.lv pre{margin:0;padding:14px 16px;height:260px;overflow:auto;font:12px/1.55 var(--mono);color:var(--soft);white-space:pre}
+.verdict{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:18px;font:500 14px var(--sans)}
+.verdict .pill{font:600 12px var(--mono);padding:7px 13px;border-radius:999px;background:rgba(28,138,90,.12);color:var(--ok)}
+.verdict .pill.warn{background:rgba(242,96,58,.12);color:#c8561f}
+.verdict small{color:var(--mute);font:12px var(--mono)}
+.find{display:flex;gap:10px;margin-top:6px}
+.find input{flex:1;min-width:0;font:15px var(--sans);padding:14px 18px;border-radius:999px;border:1px solid var(--line2);background:var(--surface2);outline:none}
+.find input:focus{border-color:var(--text);background:#fff}
+.tr{padding:12px 16px;border-top:1px solid var(--line);font-size:13.5px;line-height:1.5;color:var(--soft)}
+.tr:first-child{border-top:0}.tr b{display:block;font:600 14px var(--mono);color:var(--text);letter-spacing:-.01em}
+.tr em{font:500 11px var(--mono);font-style:normal;color:var(--mute)}
+.sk{background:linear-gradient(90deg,var(--surface2),#fff,var(--surface2));background-size:200% 100%;animation:sk 1.2s linear infinite}
+@keyframes sk{to{background-position:-200% 0}}
+@media(max-width:760px){.lv{grid-template-columns:1fr}}
+
+
+/* snake arena */
+.sn{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:20px}
+.sn .box{border-radius:var(--r);overflow:hidden;border:1px solid var(--line);background:var(--surface);min-width:0}
+.sn .hd{display:flex;justify-content:space-between;align-items:center;padding:10px 16px;background:#4a752c;color:#fff;font:600 14px var(--head)}
+.sn .hd em{font:500 11px var(--mono);font-style:normal;opacity:.85}
+.sn canvas{display:block;width:100%;height:auto;background:#aad751}
+.sn .reb .hd{background:#2f5fd0}
+.sn .cap{padding:9px 16px;font:500 11px var(--mono);color:var(--mute);display:flex;justify-content:space-between}
+.sn .cap b{font:600 12px var(--mono);color:var(--text)}
+.snctl{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:18px}
+.snctl .pill{font:600 12px var(--mono);padding:7px 13px;border-radius:999px;background:var(--surface2);color:var(--mute)}
+.snctl .pill.ok{background:rgba(28,138,90,.12);color:var(--ok)}.snctl .pill.bad{background:rgba(242,96,58,.14);color:#c8561f}
+.snctl span.t{font:12px var(--mono);color:var(--mute)}
+.snpad{display:none;grid-template-columns:repeat(3,64px);gap:8px;justify-content:center;margin-top:16px}
+.snpad .btn{justify-content:center;height:54px;padding:0;font-size:20px}.snpad .u{grid-column:2}
+@media(max-width:760px){.sn{grid-template-columns:1fr}.snpad{display:grid}}
+
+
+/* gameplay videos */
+.vids{margin-top:44px;text-align:left}
+.vids h3{margin:0 0 6px;font:700 28px var(--head);letter-spacing:-.04em}
+.vids p.sub{margin:0 0 18px;color:var(--soft);max-width:62ch}
+.vgrid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.vcard{border-radius:var(--R);overflow:hidden;background:#0a0a0b;box-shadow:var(--shadow);border:1px solid #1d1d20;min-width:0}
+.vcard .vb{display:flex;justify-content:space-between;padding:12px 18px;font:500 12px var(--mono);color:#85858b;border-bottom:1px solid var(--screen-line)}
+.vcard .vb b{color:#e8e7e2;font-weight:500}
+.vcard video{display:block;width:100%;aspect-ratio:16/9;background:#000}
+.vctl{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:16px}
+.vctl .t{font:12px var(--mono);color:var(--mute)}
+@media(max-width:760px){.vgrid{grid-template-columns:1fr}}
+
+/* numbers */
+.nums{display:grid;grid-template-columns:repeat(4,1fr);gap:20px;margin-top:70px;text-align:center}
+.nums b{display:block;font:700 clamp(44px,6vw,76px)/1 var(--head);letter-spacing:-.055em}
+.nums span{display:block;color:var(--soft);font-size:15px;margin-top:10px}
+.nums small{display:block;color:var(--mute);font-size:12px;margin-top:4px}
+@media(max-width:760px){.nums{grid-template-columns:repeat(2,1fr);row-gap:44px}}
+
+/* how */
+.flow{display:grid;grid-template-columns:repeat(4,1fr);gap:0;margin-top:64px;text-align:left;border-top:1px solid var(--line2)}
+.flow>div{padding:26px 24px 0 0}
+.flow i{font-size:26px;color:var(--text);display:block;margin-bottom:46px}
+.flow h3{font-size:26px;margin-bottom:8px}
+.flow p{color:var(--soft);font-size:15px}
+@media(max-width:860px){.flow{grid-template-columns:1fr 1fr;row-gap:16px}}
+@media(max-width:520px){.flow{grid-template-columns:1fr}}
+
+/* formats */
+.fmt{display:grid;grid-template-columns:1.15fr .85fr;gap:16px;margin-top:56px;text-align:left}
+.fcol{display:grid;gap:16px}
+.fbox{border-radius:var(--R);padding:34px;background:rgba(255,255,255,.7);border:1px solid rgba(255,255,255,.9)}
+.fbox h3{font-size:26px;margin-bottom:10px;display:flex;align-items:center;gap:10px}
+.fbox p{color:var(--soft);font-size:16px}
+.fbox.full{background:var(--surface);box-shadow:var(--shadow)}
+.fbox.full h3 i{color:var(--ok)}
+.fbox .chips{justify-content:flex-start;margin-top:22px}
+.fbox .chip{background:var(--surface2);border-color:var(--line)}
+@media(max-width:860px){.fmt{grid-template-columns:1fr}}
+
+/* faq */
+.faq{margin:56px auto 0;max-width:760px;text-align:left}
+details{border-top:1px solid var(--line2)}
+details:last-child{border-bottom:1px solid var(--line2)}
+summary{list-style:none;cursor:pointer;padding:24px 0;font:600 20px var(--head);letter-spacing:-.02em;display:flex;justify-content:space-between;align-items:center;gap:16px}
+summary::-webkit-details-marker{display:none}
+summary i{transition:transform .25s;color:var(--mute)}
+details[open] summary i{transform:rotate(45deg);color:var(--text)}
+details p{color:var(--soft);padding:0 0 24px;max-width:62ch;font-size:16px}
+
+/* final + footer */
+.final{margin-top:140px;padding:90px 24px;border-radius:var(--R);text-align:center;background:var(--text);color:#fff;position:relative;overflow:hidden}
+.final::before{content:"";position:absolute;inset:auto -10% -60% -10%;height:90%;background:radial-gradient(50% 60% at 50% 100%,rgba(242,96,58,.55),transparent 70%)}
+.final h2{position:relative;max-width:14ch;margin:0 auto 28px}
+.final .btn{position:relative;background:#fff;color:var(--text);border-color:#fff}
+.final .btn:hover{background:#f1f0ee}
+footer{padding:44px 0 56px;color:var(--mute);font-size:14px}
+footer .wrap{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap}
+
+/* reveal */
+@media(prefers-reduced-motion:no-preference){
+  .rv{opacity:0;transform:translateY(22px);transition:opacity .8s cubic-bezier(.16,1,.3,1),transform .8s cubic-bezier(.16,1,.3,1)}
+  .rv.in{opacity:1;transform:none}
+}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<header><div class="pill-nav">
+  <a class="brand" href="#top"><span class="mark"><i class="ph ph-package"></i></span>Unpack</a>
+  <a class="l" href="#how">How it works</a><a class="l" href="#try">Demo</a><a class="l" href="#engine">Live engine</a><a class="l" href="#formats">Formats</a><a class="l" href="#faq">FAQ</a>
+  <a class="btn primary sm" href="#try">Try the demo</a>
+</div></header>
+
+<main id="top">
+<div class="heroBg"><svg class="bgsvg" viewBox="0 0 1600 760" preserveAspectRatio="xMidYMin slice" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+<defs>
+<linearGradient id="g0" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#d8d2c8"/><stop offset="1" stop-color="#eeedeb"/></linearGradient>
+<filter id="b0" x="-5%" y="-5%" width="110%" height="110%"><feGaussianBlur stdDeviation="3.5"/></filter>
+<linearGradient id="g1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#c9bfb2"/><stop offset="1" stop-color="#eeedeb"/></linearGradient>
+<filter id="b1" x="-5%" y="-5%" width="110%" height="110%"><feGaussianBlur stdDeviation="2.5"/></filter>
+<linearGradient id="g2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#b5a893"/><stop offset="1" stop-color="#e9e5dd"/></linearGradient>
+<filter id="b2" x="-5%" y="-5%" width="110%" height="110%"><feGaussianBlur stdDeviation="1.6"/></filter>
+<linearGradient id="g3" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8f8a72"/><stop offset="1" stop-color="#e4e0d6"/></linearGradient>
+<filter id="b3" x="-5%" y="-5%" width="110%" height="110%"><feGaussianBlur stdDeviation="0.9"/></filter>
+<linearGradient id="g4" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6f7358"/><stop offset="1" stop-color="#dcd8cb"/></linearGradient>
+<radialGradient id="sun" cx="62%" cy="38%" r="40%"><stop offset="0" stop-color="#fff6e4" stop-opacity=".95"/><stop offset=".45" stop-color="#ffe2b8" stop-opacity=".45"/><stop offset="1" stop-color="#ffe2b8" stop-opacity="0"/></radialGradient>
+<linearGradient id="haze" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#eeedeb" stop-opacity="0"/><stop offset="1" stop-color="#eeedeb" stop-opacity=".85"/></linearGradient>
+</defs>
+<rect width="1600" height="760" fill="url(#sun)"/>
+<path d="M0.0,267.1 L12.5,265.1 L25.0,269.6 L37.5,269.5 L50.0,264.1 L62.5,262.3 L75.0,253.2 L87.5,245.4 L100.0,243.7 L112.5,248.9 L125.0,249.5 L137.5,246.0 L150.0,243.8 L162.5,243.5 L175.0,248.3 L187.5,244.0 L200.0,242.8 L212.5,248.7 L225.0,250.7 L237.5,262.7 L250.0,269.2 L262.5,267.2 L275.0,271.9 L287.5,278.9 L300.0,284.2 L312.5,279.9 L325.0,282.4 L337.5,286.9 L350.0,288.1 L362.5,288.8 L375.0,292.1 L387.5,290.8 L400.0,283.8 L412.5,281.6 L425.0,272.3 L437.5,267.4 L450.0,262.4 L462.5,266.7 L475.0,263.6 L487.5,261.1 L500.0,261.5 L512.5,256.1 L525.0,256.9 L537.5,258.0 L550.0,257.6 L562.5,250.2 L575.0,249.7 L587.5,243.4 L600.0,241.6 L612.5,244.4 L625.0,248.6 L637.5,254.4 L650.0,258.6 L662.5,258.3 L675.0,263.0 L687.5,263.8 L700.0,271.3 L712.5,273.6 L725.0,270.4 L737.5,267.5 L750.0,267.3 L762.5,272.6 L775.0,271.1 L787.5,274.8 L800.0,272.7 L812.5,274.7 L825.0,278.6 L837.5,275.9 L850.0,273.8 L862.5,281.0 L875.0,287.8 L887.5,293.5 L900.0,297.1 L912.5,306.1 L925.0,313.7 L937.5,316.7 L950.0,318.9 L962.5,323.3 L975.0,325.9 L987.5,328.0 L1000.0,323.5 L1012.5,327.4 L1025.0,331.1 L1037.5,327.9 L1050.0,325.8 L1062.5,329.4 L1075.0,329.8 L1087.5,327.7 L1100.0,329.4 L1112.5,326.2 L1125.0,326.0 L1137.5,332.4 L1150.0,331.6 L1162.5,332.1 L1175.0,332.3 L1187.5,328.3 L1200.0,323.5 L1212.5,322.8 L1225.0,329.3 L1237.5,325.4 L1250.0,322.7 L1262.5,321.3 L1275.0,318.7 L1287.5,307.8 L1300.0,304.0 L1312.5,307.8 L1325.0,309.9 L1337.5,313.0 L1350.0,314.0 L1362.5,312.2 L1375.0,316.8 L1387.5,316.3 L1400.0,314.0 L1412.5,316.7 L1425.0,319.9 L1437.5,328.0 L1450.0,333.4 L1462.5,334.4 L1475.0,337.6 L1487.5,336.8 L1500.0,333.0 L1512.5,335.6 L1525.0,334.6 L1537.5,330.9 L1550.0,334.3 L1562.5,331.2 L1575.0,334.6 L1587.5,338.9 L1600.0,340.6 L1600,760 L0,760Z" fill="url(#g0)" filter="url(#b0)"/>
+<rect y="370" width="1600" height="140" fill="url(#haze)" opacity=".55"/>
+<path d="M0.0,345.3 L12.5,343.4 L25.0,343.1 L37.5,339.9 L50.0,339.3 L62.5,337.7 L75.0,337.0 L87.5,338.7 L100.0,341.8 L112.5,341.0 L125.0,336.4 L137.5,340.2 L150.0,339.7 L162.5,340.5 L175.0,344.9 L187.5,342.4 L200.0,341.0 L212.5,342.4 L225.0,347.5 L237.5,351.7 L250.0,354.2 L262.5,354.9 L275.0,350.3 L287.5,349.8 L300.0,352.6 L312.5,357.6 L325.0,359.7 L337.5,357.6 L350.0,357.7 L362.5,357.8 L375.0,363.3 L387.5,366.8 L400.0,367.3 L412.5,366.9 L425.0,368.3 L437.5,364.7 L450.0,364.8 L462.5,369.3 L475.0,374.4 L487.5,374.0 L500.0,376.4 L512.5,374.9 L525.0,374.4 L537.5,375.3 L550.0,376.8 L562.5,377.9 L575.0,379.9 L587.5,383.4 L600.0,385.9 L612.5,385.0 L625.0,386.4 L637.5,380.7 L650.0,379.4 L662.5,369.1 L675.0,363.4 L687.5,356.9 L700.0,354.8 L712.5,352.9 L725.0,350.8 L737.5,345.4 L750.0,341.5 L762.5,341.8 L775.0,338.8 L787.5,341.5 L800.0,344.2 L812.5,348.0 L825.0,349.5 L837.5,352.9 L850.0,351.0 L862.5,350.2 L875.0,354.3 L887.5,351.2 L900.0,353.5 L912.5,351.6 L925.0,353.7 L937.5,348.7 L950.0,344.9 L962.5,346.0 L975.0,346.3 L987.5,344.9 L1000.0,340.8 L1012.5,341.1 L1025.0,342.9 L1037.5,346.5 L1050.0,344.9 L1062.5,340.2 L1075.0,341.0 L1087.5,343.9 L1100.0,343.1 L1112.5,342.7 L1125.0,345.5 L1137.5,352.3 L1150.0,354.9 L1162.5,356.9 L1175.0,364.1 L1187.5,371.0 L1200.0,372.7 L1212.5,378.2 L1225.0,380.9 L1237.5,387.6 L1250.0,388.9 L1262.5,389.5 L1275.0,389.2 L1287.5,391.8 L1300.0,398.1 L1312.5,408.1 L1325.0,412.9 L1337.5,415.9 L1350.0,419.6 L1362.5,422.7 L1375.0,430.4 L1387.5,436.4 L1400.0,441.2 L1412.5,444.0 L1425.0,447.0 L1437.5,447.7 L1450.0,448.7 L1462.5,445.9 L1475.0,447.0 L1487.5,446.8 L1500.0,450.8 L1512.5,457.0 L1525.0,462.3 L1537.5,470.4 L1550.0,479.0 L1562.5,477.8 L1575.0,480.8 L1587.5,486.3 L1600.0,492.5 L1600,760 L0,760Z" fill="url(#g1)" filter="url(#b1)"/>
+<rect y="440" width="1600" height="140" fill="url(#haze)" opacity=".55"/>
+<path d="M0.0,419.7 L12.5,419.2 L25.0,418.8 L37.5,418.1 L50.0,417.0 L62.5,420.3 L75.0,421.4 L87.5,423.6 L100.0,428.3 L112.5,433.6 L125.0,437.9 L137.5,443.1 L150.0,447.7 L162.5,448.0 L175.0,447.2 L187.5,448.2 L200.0,451.9 L212.5,447.8 L225.0,446.6 L237.5,447.1 L250.0,448.9 L262.5,449.7 L275.0,446.8 L287.5,442.0 L300.0,438.6 L312.5,441.2 L325.0,443.0 L337.5,446.5 L350.0,451.7 L362.5,451.6 L375.0,454.9 L387.5,452.2 L400.0,453.4 L412.5,455.8 L425.0,455.4 L437.5,460.0 L450.0,462.1 L462.5,464.8 L475.0,468.6 L487.5,468.8 L500.0,467.3 L512.5,470.6 L525.0,472.3 L537.5,473.3 L550.0,470.8 L562.5,478.3 L575.0,481.7 L587.5,484.7 L600.0,488.5 L612.5,491.6 L625.0,490.3 L637.5,491.1 L650.0,487.8 L662.5,489.6 L675.0,490.7 L687.5,493.2 L700.0,492.3 L712.5,493.0 L725.0,493.9 L737.5,492.2 L750.0,491.7 L762.5,488.9 L775.0,488.3 L787.5,491.5 L800.0,491.2 L812.5,486.2 L825.0,484.1 L837.5,478.8 L850.0,477.4 L862.5,479.6 L875.0,479.1 L887.5,478.4 L900.0,475.3 L912.5,476.8 L925.0,478.4 L937.5,484.0 L950.0,486.5 L962.5,485.6 L975.0,488.6 L987.5,485.1 L1000.0,483.8 L1012.5,484.5 L1025.0,487.0 L1037.5,485.0 L1050.0,483.8 L1062.5,482.9 L1075.0,485.0 L1087.5,484.5 L1100.0,487.8 L1112.5,483.6 L1125.0,480.8 L1137.5,480.3 L1150.0,476.1 L1162.5,477.8 L1175.0,475.2 L1187.5,476.2 L1200.0,475.1 L1212.5,476.0 L1225.0,477.2 L1237.5,478.0 L1250.0,481.1 L1262.5,484.3 L1275.0,483.3 L1287.5,480.5 L1300.0,477.4 L1312.5,478.7 L1325.0,478.0 L1337.5,477.1 L1350.0,480.4 L1362.5,480.8 L1375.0,483.7 L1387.5,490.8 L1400.0,494.9 L1412.5,496.4 L1425.0,495.3 L1437.5,500.6 L1450.0,502.5 L1462.5,502.4 L1475.0,501.5 L1487.5,498.9 L1500.0,496.9 L1512.5,501.3 L1525.0,505.0 L1537.5,506.5 L1550.0,504.8 L1562.5,506.3 L1575.0,509.5 L1587.5,512.0 L1600.0,514.2 L1600,760 L0,760Z" fill="url(#g2)" filter="url(#b2)"/>
+<rect y="520" width="1600" height="140" fill="url(#haze)" opacity=".55"/>
+<path d="M0.0,564.1 L12.5,563.8 L25.0,561.3 L37.5,561.9 L50.0,561.2 L62.5,564.8 L75.0,565.9 L87.5,566.9 L100.0,567.3 L112.5,570.3 L125.0,571.2 L137.5,571.6 L150.0,574.4 L162.5,578.7 L175.0,581.7 L187.5,583.6 L200.0,586.5 L212.5,589.0 L225.0,592.5 L237.5,594.6 L250.0,595.3 L262.5,597.3 L275.0,598.0 L287.5,600.0 L300.0,603.0 L312.5,604.5 L325.0,606.7 L337.5,610.0 L350.0,614.5 L362.5,616.3 L375.0,615.6 L387.5,617.7 L400.0,619.1 L412.5,620.4 L425.0,623.0 L437.5,622.9 L450.0,622.6 L462.5,621.5 L475.0,622.9 L487.5,620.8 L500.0,620.0 L512.5,622.7 L525.0,625.4 L537.5,629.9 L550.0,631.8 L562.5,634.2 L575.0,634.6 L587.5,634.7 L600.0,634.6 L612.5,633.4 L625.0,630.8 L637.5,629.0 L650.0,628.6 L662.5,628.2 L675.0,626.7 L687.5,625.2 L700.0,620.9 L712.5,618.6 L725.0,618.2 L737.5,620.3 L750.0,619.9 L762.5,620.9 L775.0,619.3 L787.5,617.3 L800.0,616.1 L812.5,618.0 L825.0,618.1 L837.5,617.9 L850.0,615.1 L862.5,614.7 L875.0,616.2 L887.5,617.2 L900.0,618.3 L912.5,617.7 L925.0,616.6 L937.5,616.7 L950.0,615.3 L962.5,613.9 L975.0,613.7 L987.5,615.6 L1000.0,616.1 L1012.5,616.4 L1025.0,615.5 L1037.5,617.4 L1050.0,617.3 L1062.5,619.0 L1075.0,619.4 L1087.5,622.9 L1100.0,624.4 L1112.5,623.9 L1125.0,622.9 L1137.5,623.3 L1150.0,623.5 L1162.5,621.8 L1175.0,620.4 L1187.5,620.9 L1200.0,621.9 L1212.5,620.1 L1225.0,618.6 L1237.5,618.0 L1250.0,617.4 L1262.5,614.4 L1275.0,611.9 L1287.5,610.3 L1300.0,610.7 L1312.5,608.0 L1325.0,605.9 L1337.5,604.7 L1350.0,600.9 L1362.5,597.3 L1375.0,594.8 L1387.5,593.5 L1400.0,589.6 L1412.5,587.4 L1425.0,583.4 L1437.5,581.6 L1450.0,580.0 L1462.5,578.6 L1475.0,578.7 L1487.5,576.7 L1500.0,572.7 L1512.5,573.1 L1525.0,571.1 L1537.5,570.8 L1550.0,571.6 L1562.5,572.2 L1575.0,571.9 L1587.5,572.7 L1600.0,572.0 L1600,760 L0,760Z" fill="url(#g3)" filter="url(#b3)"/>
+<rect y="600" width="1600" height="140" fill="url(#haze)" opacity=".55"/>
+<path d="M0.0,609.0 L12.5,610.3 L25.0,611.4 L37.5,613.8 L50.0,616.3 L62.5,617.9 L75.0,620.5 L87.5,620.9 L100.0,621.9 L112.5,622.8 L125.0,622.1 L137.5,623.2 L150.0,623.4 L162.5,623.5 L175.0,622.9 L187.5,622.8 L200.0,623.2 L212.5,622.3 L225.0,621.6 L237.5,622.0 L250.0,621.8 L262.5,622.9 L275.0,623.9 L287.5,625.2 L300.0,626.1 L312.5,625.4 L325.0,626.1 L337.5,625.3 L350.0,623.9 L362.5,623.3 L375.0,623.6 L387.5,624.0 L400.0,625.0 L412.5,625.0 L425.0,624.8 L437.5,625.3 L450.0,624.3 L462.5,623.3 L475.0,622.5 L487.5,622.0 L500.0,621.0 L512.5,619.8 L525.0,619.4 L537.5,619.9 L550.0,619.0 L562.5,617.3 L575.0,616.4 L587.5,616.3 L600.0,616.1 L612.5,617.1 L625.0,617.5 L637.5,617.9 L650.0,617.7 L662.5,616.9 L675.0,616.2 L687.5,615.9 L700.0,615.2 L712.5,613.9 L725.0,614.1 L737.5,614.5 L750.0,613.3 L762.5,614.5 L775.0,615.5 L787.5,616.4 L800.0,617.0 L812.5,617.0 L825.0,617.7 L837.5,619.3 L850.0,620.9 L862.5,623.4 L875.0,625.4 L887.5,626.6 L900.0,628.0 L912.5,629.7 L925.0,632.6 L937.5,633.2 L950.0,634.7 L962.5,636.6 L975.0,637.3 L987.5,638.9 L1000.0,641.4 L1012.5,644.6 L1025.0,647.8 L1037.5,650.3 L1050.0,652.2 L1062.5,654.0 L1075.0,656.7 L1087.5,658.8 L1100.0,660.0 L1112.5,660.8 L1125.0,661.7 L1137.5,663.9 L1150.0,664.6 L1162.5,665.9 L1175.0,668.2 L1187.5,670.5 L1200.0,673.1 L1212.5,673.6 L1225.0,674.5 L1237.5,676.1 L1250.0,678.5 L1262.5,678.7 L1275.0,679.2 L1287.5,679.7 L1300.0,680.5 L1312.5,681.2 L1325.0,682.3 L1337.5,684.0 L1350.0,684.5 L1362.5,685.5 L1375.0,687.0 L1387.5,687.6 L1400.0,689.6 L1412.5,690.1 L1425.0,689.8 L1437.5,689.8 L1450.0,690.0 L1462.5,690.0 L1475.0,691.5 L1487.5,692.6 L1500.0,692.8 L1512.5,693.3 L1525.0,693.2 L1537.5,694.8 L1550.0,696.0 L1562.5,695.8 L1575.0,694.7 L1587.5,694.5 L1600.0,695.1 L1600,760 L0,760Z" fill="url(#g4)"/>
+<rect y="690" width="1600" height="140" fill="url(#haze)" opacity=".55"/>
+</svg></div>
+  <div class="wrap">
+    <section class="hero">
+      <div class="tag rv"><i class="ph ph-package"></i> Your program, readable again</div>
+      <h1 class="rv">Get the source<br>code back.</h1>
+      <p class="sub rv">Drop in a compiled program. Unpack rebuilds the project and proves how close the copy is.</p>
+      <div class="cta rv"><a class="btn primary" href="#try"><i class="ph ph-play"></i> Try the demo</a></div>
+      <div class="facts rv"><span>Free to try</span><span>No account</span><span>.NET programs today</span></div>
+
+      <div class="stage rv" aria-hidden="true">
+        <div class="xray">
+          <div class="bar"><span id="scanName">OpenRA/WVec.cs</span><span id="scanState">converting</span></div>
+          <pre id="scan"></pre>
+          <div class="foot"><i class="ph ph-check-circle"></i><span id="scanFoot">4.7 MB of compiled game in, 208,933 lines of C# out</span></div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <section class="sec center" id="how"><div class="wrap">
+    <h2 class="rv">One drop.<br>A whole project back.</h2>
+    <p class="lead rv">Unpack takes the program apart, builds it again from scratch, and shows you the proof.</p>
+    <div class="chips rv"><span class="chip">Decompile</span><span class="chip">Rebuild</span><span class="chip">Run both side by side</span><span class="chip">Score</span><span class="chip">Download</span></div>
+    <div class="flow">
+      <div class="rv"><i class="ph ph-upload-simple"></i><h3>Drop</h3><p>Hand over an .exe or .dll. No setup, no account.</p></div>
+      <div class="rv"><i class="ph ph-magnifying-glass"></i><h3>Take apart</h3><p>Real classes, methods and logic come back as readable C#.</p></div>
+      <div class="rv"><i class="ph ph-hammer"></i><h3>Rebuild</h3><p>The recovered project is compiled again from scratch.</p></div>
+      <div class="rv"><i class="ph ph-scales"></i><h3>Prove</h3><p>Original and copy run on the same input. Matching output is the score.</p></div>
+    </div>
+  </div></section>
+
+  <section class="sec center" id="try"><div class="wrap">
+    <h2 class="rv">Rebuild a real game.</h2>
+    <p class="lead rv">Watch Unpack rebuild OpenRA, an open-source Red Alert engine, from its compiled files alone. Or drop in a .NET program you own.</p>
+    <div class="app rv">
+      <div class="top"><span>unpack / workspace</span><span id="appState">ready</span></div>
+      <div class="body" style="text-align:left">
+        <div class="drop" id="tray" tabindex="0" role="button" aria-label="Choose a file to unpack">
+          <i class="ph ph-upload-simple ic"></i>
+          <h3>Drop a program here</h3>
+          <p>OpenRA is a recorded run of the real pipeline. Your own files are processed live.</p>
+          <div class="row">
+            <button class="btn primary" id="sampleOra" type="button"><i class="ph ph-game-controller"></i> Rebuild OpenRA</button>
+            <button class="btn" id="sample" type="button"><i class="ph ph-game-controller"></i> Rebuild and play Snake</button>
+            <button class="btn" id="pick" type="button"><i class="ph ph-file-arrow-up"></i> Choose a file</button>
+          </div>
+          <input id="file" type="file" hidden>
+        </div>
+        <p class="hint" id="hint">Best results on .NET assemblies. Native programs return strings only.</p>
+
+        <div id="line"><div class="stations" id="stations"></div><p class="err" id="err"></p></div>
+
+        <div id="result">
+          <div class="resh"><h3>Result</h3><a class="btn primary" id="dl" href="#"><i class="ph ph-download-simple"></i> Download project</a></div>
+          <div class="score">
+            <div class="ring">
+              <svg viewBox="0 0 200 200" width="200" height="200"><circle class="bg" cx="100" cy="100" r="86" fill="none" stroke-width="12"/><circle class="fg" id="arc" cx="100" cy="100" r="86" fill="none" stroke-width="12" stroke-linecap="round" stroke-dasharray="540.4" stroke-dashoffset="540.4"/></svg>
+              <div class="num"><div><b id="scoreNum">0</b><span>of 100</span></div></div>
+            </div>
+            <div><div class="metrics" id="metrics"></div><p class="hint" id="scoreSub"></p></div>
+          </div>
+
+          <div class="stat" id="statline"></div>
+          <div id="checksSec" hidden>
+            <div class="sub2">Original vs rebuilt, side by side</div>
+            <p id="checksSub">Both builds ran the same checks. Matching output means the copy behaves like the original.</p>
+            <div id="checks"></div>
+          </div>
+          <div id="repairSec" hidden>
+            <div class="sub2">What Unpack fixed on its own</div>
+            <p id="repairSub"></p>
+            <div id="repairs"></div>
+          </div>
+          <div id="playSec" hidden>
+            <div class="sub2">Play the rebuilt game</div>
+            <p>The same keys go to the original and to the copy Unpack rebuilt. Use the arrow keys or WASD, or swipe on a phone. If the two ever disagree, you will see it.</p>
+            <div class="sn">
+              <div class="box"><div class="hd"><span>Original</span><em id="snSa">0</em></div><canvas id="ca" width="510" height="450"></canvas><div class="cap"><span>compiled program</span></div></div>
+              <div class="box reb"><div class="hd"><span>Rebuilt by Unpack</span><em id="snSb">0</em></div><canvas id="cb" width="510" height="450"></canvas><div class="cap"><span>from the binary only</span></div></div>
+            </div>
+            <div class="snctl"><button class="btn primary" id="start" type="button"><i class="ph ph-play"></i> Start</button><span class="pill" id="syncPill">Waiting</span><span class="t" id="syncTxt"></span></div>
+            <div class="snpad" id="pad"><button class="btn u" data-k="U" aria-label="Up"><i class="ph ph-arrow-up"></i></button><button class="btn" data-k="L" aria-label="Left"><i class="ph ph-arrow-left"></i></button><button class="btn" data-k="D" aria-label="Down"><i class="ph ph-arrow-down"></i></button><button class="btn" data-k="R" aria-label="Right"><i class="ph ph-arrow-right"></i></button></div>
+          </div>
+
+          <div class="sub2">Source code</div>
+          <p id="srcSub"></p>
+          <div class="tabs" id="tabs" role="tablist"></div>
+          <div class="src" id="src"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="vids rv" id="vids">
+      <h3>Watch the same match, twice.</h3>
+      <p class="sub">Two computer players fight a Red Alert match. On the left, the original game. On the right, the copy Unpack rebuilt from the compiled files, replaying the same match move for move.</p>
+      <div class="vgrid">
+        <div class="vcard"><div class="vb"><b>Original OpenRA</b><span>compiled by its authors</span></div><video id="vA" src="/media/ra-original.mp4" poster="/media/ra-original.jpg" muted playsinline loop preload="metadata"></video></div>
+        <div class="vcard"><div class="vb"><b>Rebuilt by Unpack</b><span>from the binary only</span></div><video id="vB" src="/media/ra-rebuilt.mp4" poster="/media/ra-rebuilt.jpg" muted playsinline loop preload="metadata"></video></div>
+      </div>
+      <div class="vctl"><button class="btn primary" id="vPlay" type="button"><i class="ph ph-play"></i> Play both</button><span class="t" id="vT">Recorded on this machine</span></div>
+    </div>
+
+    <div class="nums">
+      <div class="rv"><b>78</b><span>Fidelity score out of 100</span><small>OpenRA, whole game</small></div>
+      <div class="rv"><b>130/130</b><span>Built-in game tests pass</span><small>OpenRA, rebuilt</small></div>
+      <div class="rv"><b>59</b><span>Compile errors fixed automatically</span><small>OpenRA, 2 with Claude</small></div>
+      <div class="rv"><b>208,933</b><span>Lines of C# rebuilt</span><small>OpenRA, 2.5 minutes</small></div>
+    </div>
+  </div></section>
+
+  <section class="sec center" id="engine"><div class="wrap">
+    <h2 class="rv">Try the rebuilt engine.</h2>
+    <p class="lead rv">The original OpenRA and the copy Unpack rebuilt are both installed on this server. Pick a check and watch each one run it, live, side by side.</p>
+    <div class="live rv">
+      <div class="top"><span>openra / original vs rebuilt</span><span id="lvState">idle</span></div>
+      <div class="body">
+        <div class="chips" id="lvChips" role="group" aria-label="Checks to run">
+          <button class="chip" type="button" data-c="ra"><i class="ph ph-sword"></i> Red Alert rules</button>
+          <button class="chip" type="button" data-c="cnc"><i class="ph ph-lightning"></i> Tiberian Dawn rules</button>
+          <button class="chip" type="button" data-c="d2k"><i class="ph ph-planet"></i> Dune 2000 rules</button>
+          <button class="chip" type="button" data-c="docs"><i class="ph ph-books"></i> Unit docs export</button>
+          <button class="chip" type="button" data-c="lua"><i class="ph ph-code"></i> Scripting API</button>
+        </div>
+        <div id="lvOut" hidden>
+          <div class="lv">
+            <div class="col"><h4><span>Original OpenRA</span><em id="lvMsO"></em></h4><pre id="lvO"></pre></div>
+            <div class="col"><h4><span>Rebuilt by Unpack</span><em id="lvMsR"></em></h4><pre id="lvR"></pre></div>
+          </div>
+          <div class="verdict" id="lvVerdict"></div>
+        </div>
+        <div class="sub2" style="margin-top:44px">Look up a unit behavior</div>
+        <p style="margin:0 0 16px;color:var(--soft)">OpenRA describes every unit ability as a trait. Search them, and both engines answer from their own code.</p>
+        <form class="find" id="lvForm"><input id="lvQ" placeholder="Try: harvester, cloak, repair" autocomplete="off" aria-label="Search unit traits"><button class="btn primary" type="submit">Search</button></form>
+        <div class="lv" id="lvSearch" hidden>
+          <div class="col"><h4><span>Original answers</span><em id="lvSO"></em></h4><div id="lvSa"></div></div>
+          <div class="col"><h4><span>Rebuilt answers</span><em id="lvSR"></em></h4><div id="lvSb"></div></div>
+        </div>
+        <div class="verdict" id="lvSV"></div>
+      </div>
+    </div>
+  </div></section>
+
+  <section class="sec center" id="formats"><div class="wrap">
+    <h2 class="rv">Built for .NET.<br>Honest about the rest.</h2>
+    <div class="fmt">
+      <div class="fbox full rv"><h3><i class="ph ph-check-circle"></i> Full rebuild</h3><p>.NET assemblies come back as a compilable C# project with real class and method names. Comments and local variable names are gone for good, because compilers discard them.</p><div class="chips"><span class="chip">.NET .dll</span><span class="chip">.NET .exe</span><span class="chip">Console apps</span><span class="chip">WinForms</span></div></div>
+      <div class="fcol">
+        <div class="fbox rv"><h3><i class="ph ph-circle-half"></i> Source only</h3><p>Unity game code decompiles, but rebuilding needs the engine's own libraries.</p></div>
+        <div class="fbox rv"><h3><i class="ph ph-text-aa"></i> Strings only</h3><p>Native C and C++ programs return the text found inside.</p></div>
+        <div class="fbox rv"><h3><i class="ph ph-clock"></i> Coming next</h3><p>Java archives and Electron apps.</p></div>
+      </div>
+    </div>
+  </div></section>
+
+  <section class="sec center" id="faq"><div class="wrap">
+    <h2 class="rv">Questions</h2>
+    <div class="faq rv">
+      <details><summary>Can I rebuild any game?<i class="ph ph-plus"></i></summary><p>No. Use it on software you own or that is open source. Commercial games such as Elden Ring or Minecraft are compiled to native code or heavily protected, and rebuilding them would be piracy.</p></details>
+      <details><summary>Why is the copy not identical to the original?<i class="ph ph-plus"></i></summary><p>Compilers throw away comments, local variable names and formatting. No tool can bring those back, so the rebuilt code matches in behavior and structure, not in every character.</p></details>
+      <details><summary>Is the OpenRA run live?<i class="ph ph-plus"></i></summary><p>It is a recording of a real run: 2.5 minutes on a laptop, on OpenRA’s official compiled files, with the result saved. The same pipeline runs live on your own .NET files, minus the multi-assembly checks.</p></details>
+      <details><summary>Does it run my file?<i class="ph ph-plus"></i></summary><p>On the hosted version, no. Uploads are decompiled and rebuilt but never executed. The side-by-side play test runs only on the bundled demo.</p></details>
+      <details><summary>What do I get in the download?<i class="ph ph-plus"></i></summary><p>A zip with the recovered source files and a project file. Open it in Visual Studio or run dotnet build.</p></details>
+      <details><summary>How is the score calculated?<i class="ph ph-plus"></i></summary><p>Half comes from running both programs on the same inputs. The rest comes from how much of the true source and how many names were recovered. Without the true source, only the behavior part is scored.</p></details>
+    </div>
+    <div class="final rv"><h2>See your program as source again.</h2><a class="btn" href="#try"><i class="ph ph-play"></i> Try the demo</a></div>
+  </div></section>
+</main>
+<footer><div class="wrap"><span>Unpack, built at HackOHI/O 2026</span><span>Use only on software you own or that is open source.</span></div></footer>
+
+<script>
+const $=s=>document.querySelector(s), esc=s=>String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+const STAGES=[['identify','Identify'],['decompile','Decompile'],['rebuild','Rebuild'],['behavior','Run both'],['source','Compare'],['package','Package']];
+
+/* reveal on scroll (IntersectionObserver) */
+(function(){
+  const els=document.querySelectorAll('.rv');
+  if(!('IntersectionObserver' in window)){els.forEach(e=>e.classList.add('in'));return}
+  const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target)}}),{threshold:.12});
+  els.forEach(e=>io.observe(e));
+})();
+
+/* hero: a stream of real decompiled OpenRA source, converted line by line, never ending */
+const STREAM=[{"name": "OpenRA/WVec.cs", "lines": ["", "namespace OpenRA;", "", "public readonly struct WVec : IEquatable<WVec>, IScriptBindable, ILuaAd...", "{", "    public readonly int X;", "", "    public readonly int Y;", "", "    public readonly int Z;", "", "    public static readonly WVec Zero = new WVec(0, 0, 0);", "", "    public long LengthSquared => (long)X * (long)X + (long)Y * (long)Y ...", "", "    public int Length => (int)Exts.ISqrt(LengthSquared);", "", "    public long HorizontalLengthSquared => (long)X * (long)X + (long)Y ...", "", "    public int HorizontalLength => (int)Exts.ISqrt(HorizontalLengthSqua...", "", "    public long VerticalLengthSquared => (long)Z * (long)Z;", "", "    public int VerticalLength => (int)Exts.ISqrt(VerticalLengthSquared);", "", "    public WAngle Yaw", "    {", "        get", "        {", "            if (LengthSquared == 0L)", "            {", "                return WAngle.Zero;", "            }", "            return WAngle.ArcTan(-Y, X) - new WAngle(256);", "        }", "    }", "", "    public LuaValue this[LuaRuntime runtime, LuaValue key]", "    {", "        get", "        {", "            return key.ToString() switch", "            {", "                \"X\" => (LuaValue)X,", "                \"Y\" => Y,", "                \"Z\" => Z,", "                \"Facing\" => new LuaCustomClrObject(Yaw),", "                _ => throw new LuaException($\"WVec does not define a me...", "            };", "        }", "        set", "        {", "            throw new LuaException(\"WVec is read-only. Use WVec.New to ...", "        }", "    }", "", "    public WVec(int x, int y, int z)", "    {", "        X = x;", "        Y = y;"]}, {"name": "OpenRA/WPos.cs", "lines": ["", "namespace OpenRA;", "", "public readonly struct WPos : IEquatable<WPos>, IScriptBindable, ILuaAd...", "{", "    public readonly int X;", "", "    public readonly int Y;", "", "    public readonly int Z;", "", "    public static readonly WPos Zero = new WPos(0, 0, 0);", "", "    public LuaValue this[LuaRuntime runtime, LuaValue key]", "    {", "        get", "        {", "            return key.ToString() switch", "            {", "                \"X\" => (LuaValue)X,", "                \"Y\" => Y,", "                \"Z\" => Z,", "                _ => throw new LuaException($\"WPos does not define a me...", "            };", "        }", "        set", "        {", "            throw new LuaException(\"WPos is read-only. Use WPos.New to ...", "        }", "    }", "", "    public WPos(int x, int y, int z)", "    {", "        X = x;", "        Y = y;", "        Z = z;", "    }", "", "    public WPos(WDist x, WDist y, WDist z)", "    {", "        X = x.Length;", "        Y = y.Length;", "        Z = z.Length;", "    }", "", "    public static explicit operator WVec(in WPos a)", "    {", "        return new WVec(a.X, a.Y, a.Z);", "    }", "", "    public static WPos operator +(in WPos a, in WVec b)", "    {", "        return new WPos(a.X + b.X, a.Y + b.Y, a.Z + b.Z);", "    }", "", "    public static WPos operator -(in WPos a, in WVec b)", "    {", "        return new WPos(a.X - b.X, a.Y - b.Y, a.Z - b.Z);", "    }", ""]}, {"name": "OpenRA/CPos.cs", "lines": ["", "namespace OpenRA;", "", "public readonly struct CPos : IEquatable<CPos>, IScriptBindable, ILuaAd...", "{", "    public readonly int Bits;", "", "    public static readonly CPos Zero = new CPos(0, 0, 0);", "", "    public int X => Bits >> 20;", "", "    public int Y => (short)(Bits >> 4) >> 4;", "", "    public byte Layer => (byte)Bits;", "", "    public LuaValue this[LuaRuntime runtime, LuaValue key]", "    {", "        get", "        {", "            return key.ToString() switch", "            {", "                \"X\" => (LuaValue)X,", "                \"Y\" => Y,", "                \"Layer\" => (int)Layer,", "                _ => throw new LuaException($\"CPos does not define a me...", "            };", "        }", "        set", "        {", "            throw new LuaException(\"CPos is read-only. Use CPos.New to ...", "        }", "    }", "", "    public CPos(int bits)", "    {", "        Bits = bits;", "    }", "", "    public CPos(int x, int y)", "        : this(x, y, 0)", "    {", "    }", "", "    public CPos(int x, int y, byte layer)", "    {", "        Bits = ((x & 0xFFF) << 20) | ((y & 0xFFF) << 8) | layer;", "    }", "", "    public static explicit operator CPos(int2 a)", "    {", "        return new CPos(a.X, a.Y);", "    }", "", "    public static CPos operator +(CVec a, CPos b)", "    {", "        return new CPos(a.X + b.X, a.Y + b.Y, b.Layer);", "    }", "", "    public static CPos operator +(CPos a, CVec b)", "    {", "        return new CPos(a.X + b.X, a.Y + b.Y, a.Layer);", "    }", "", "    public static CPos operator -(CPos a, CVec b)", "    {", "        return new CPos(a.X - b.X, a.Y - b.Y, a.Layer);", "    }", "", "    public static CVec operator -(CPos a, CPos b)", "    {"]}, {"name": "OpenRA/WAngle.cs", "lines": ["", "namespace OpenRA;", "", "public readonly struct WAngle : IEquatable<WAngle>, IScriptBindable, IL...", "{", "    public readonly int Angle;", "", "    public static readonly WAngle Zero = new WAngle(0);", "", "    private static readonly int[] CosineTable = new int[257]", "    {", "        1024, 1023, 1023, 1023, 1023, 1023, 1023, 1023, 1022, 1022,", "        1022, 1021, 1021, 1020, 1020, 1019, 1019, 1018, 1017, 1017,", "        1016, 1015, 1014, 1013, 1012, 1011, 1010, 1009, 1008, 1007,", "        1006, 1005, 1004, 1003, 1001, 1000, 999, 997, 996, 994,", "        993, 991, 990, 988, 986, 985, 983, 981, 979, 978,", "        976, 974, 972, 970, 968, 966, 964, 962, 959, 957,", "        955, 953, 950, 948, 946, 943, 941, 938, 936, 933,", "        930, 928, 925, 922, 920, 917, 914, 911, 908, 906,", "        903, 900, 897, 894, 890, 887, 884, 881, 878, 875,", "        871, 868, 865, 861, 858, 854, 851, 847, 844, 840,", "        837, 833, 829, 826, 822, 818, 814, 811, 807, 803,", "        799, 795, 791, 787, 783, 779, 775, 771, 767, 762,", "        758, 754, 750, 745, 741, 737, 732, 728, 724, 719,", "        715, 710, 706, 701, 696, 692, 687, 683, 678, 673,", "        668, 664, 659, 654, 649, 644, 639, 634, 629, 625,", "        620, 615, 609, 604, 599, 594, 589, 584, 579, 574,", "        568, 563, 558, 553, 547, 542, 537, 531, 526, 521,", "        515, 510, 504, 499, 493, 488, 482, 477, 471, 466,", "        460, 454, 449, 443, 437, 432, 426, 420, 414, 409,", "        403, 397, 391, 386, 380, 374, 368, 362, 356, 350,", "        344, 339, 333, 327, 321, 315, 309, 303, 297, 291,", "        285, 279, 273, 267, 260, 254, 248, 242, 236, 230,", "        224, 218, 212, 205, 199, 193, 187, 181, 175, 168,", "        162, 156, 150, 144, 137, 131, 125, 119, 112, 106,", "        100, 94, 87, 81, 75, 69, 62, 56, 50, 43,", "        37, 31, 25, 18, 12, 6, 0", "    };", "", "    private static readonly int[] TanTable = new int[257]", "    {", "        0, 6, 12, 18, 25, 31, 37, 44, 50, 56,", "        62, 69, 75, 81, 88, 94, 100, 107, 113, 119,", "        126, 132, 139, 145, 151, 158, 164, 171, 177, 184,", "        190, 197, 203, 210, 216, 223, 229, 236, 243, 249,", "        256, 263, 269, 276, 283, 290, 296, 303, 310, 317,", "        324, 331, 338, 345, 352, 359, 366, 373, 380, 387,", "        395, 402, 409, 416, 424, 431, 438, 446, 453, 461,", "        469, 476, 484, 492, 499, 507, 515, 523, 531, 539,", "        547, 555, 563, 571, 580, 588, 596, 605, 613, 622,", "        630, 639, 648, 657, 666, 675, 684, 693, 702, 711,", "        721, 730, 740, 749, 759, 769, 779, 789, 799, 809,", "        819, 829, 840, 850, 861, 872, 883, 894, 905, 916,", "        928, 939, 951, 963, 974, 986, 999, 1011, 1023, 1036,", "        1049, 1062, 1075, 1088, 1102, 1115, 1129, 1143, 1158, 1172,", "        1187, 1201, 1216, 1232, 1247, 1263, 1279, 1295, 1312, 1328,", "        1345, 1363, 1380, 1398, 1416, 1435, 1453, 1473, 1492, 1512,", "        1532, 1553, 1574, 1595, 1617, 1639, 1661, 1684, 1708, 1732,", "        1756, 1782, 1807, 1833, 1860, 1887, 1915, 1944, 1973, 2003,", "        2034, 2065, 2098, 2131, 2165, 2199, 2235, 2272, 2310, 2348,", "        2388, 2429, 2472, 2515, 2560, 2606, 2654, 2703, 2754, 2807,", "        2861, 2918, 2976, 3036, 3099, 3164, 3232, 3302, 3375, 3451,", "        3531, 3613, 3700, 3790, 3885, 3984, 4088, 4197, 4311, 4432,", "        4560, 4694, 4836, 4987, 5147, 5318, 5499, 5693, 5901, 6124,", "        6364, 6622, 6903, 7207, 7539, 7902, 8302, 8743, 9233, 9781,", "        10396, 11094, 11891, 12810, 13882, 15148, 16667, 18524, 20843, ...", "        27801, 33366, 41713, 55622, 83438, 166883, 2147483647", "    };", "", "    public int AngleSquared => Angle * Angle;"]}, {"name": "OpenRA/WDist.cs", "lines": ["", "namespace OpenRA;", "", "public readonly struct WDist : IComparable, IComparable<WDist>, IEquata...", "{", "    public readonly int Length;", "", "    public static readonly WDist Zero = new WDist(0);", "", "    public static readonly WDist MaxValue = new WDist(int.MaxValue);", "", "    public long LengthSquared => (long)Length * (long)Length;", "", "    public LuaValue this[LuaRuntime runtime, LuaValue key]", "    {", "        get", "        {", "            string text = key.ToString();", "            if (text == \"Length\")", "            {", "                return Length;", "            }", "            throw new LuaException($\"WDist does not define a member '{k...", "        }", "        set", "        {", "            throw new LuaException(\"WDist is read-only. Use WDist.New t...", "        }", "    }", "", "    public WDist(int r)", "    {", "        Length = r;", "    }", "", "    public static WDist FromCells(int cells)", "    {", "        return new WDist(1024 * cells);", "    }", "", "    public static WDist operator +(WDist a, WDist b)", "    {", "        return new WDist(a.Length + b.Length);", "    }", "", "    public static WDist operator -(WDist a, WDist b)", "    {", "        return new WDist(a.Length - b.Length);", "    }", "", "    public static WDist operator -(WDist a)", "    {", "        return new WDist(-a.Length);", "    }", "", "    public static WDist operator /(WDist a, int b)", "    {", "        return new WDist(a.Length / b);", "    }", "", "    public static WDist operator *(WDist a, int b)", "    {", "        return new WDist(a.Length * b);", "    }", "", "    public static WDist operator *(int a, WDist b)", "    {", "        return new WDist(a * b.Length);", "    }", ""]}, {"name": "OpenRA/Actor.cs", "lines": ["", "namespace OpenRA;", "", "public sealed class Actor : IScriptBindable, IScriptNotifyBind, ILuaTab...", "{", "    internal readonly struct SyncHash(ISync trait)", "    {", "        public readonly ISync Trait = trait;", "", "        private readonly Func<object, int> hashFunction = Sync.GetHashF...", "", "        public int Hash()", "        {", "            return hashFunction(Trait);", "        }", "    }", "", "    private sealed class ConditionState", "    {", "        public readonly List<VariableObserverNotifier> Notifiers = new ...", "", "        public readonly HashSet<int> Tokens = new HashSet<int>();", "    }", "", "    public const int InvalidConditionToken = -1;", "", "    public readonly ActorInfo Info;", "", "    public readonly World World;", "", "    public readonly uint ActorID;", "", "    private Activity currentActivity;", "", "    public int Generation;", "", "    public Actor ReplacedByActor;", "", "    private readonly ICrushable[] crushables;", "", "    private readonly Dictionary<string, ConditionState> conditionStates...", "", "    private readonly Dictionary<int, string> conditionTokens = new Dict...", "", "    private int nextConditionToken = 1;", "", "    private readonly Dictionary<string, int> conditionCache = new Dicti...", "", "    private readonly IReadOnlyDictionary<string, int> readOnlyCondition...", "", "    private readonly IFacing facing;", "", "    private readonly IHealth health;", "", "    private readonly IResolveOrder[] resolveOrders;", "", "    private readonly IRenderModifier[] renderModifiers;", "", "    private readonly IRender[] renders;", "", "    private readonly IMouseBounds[] mouseBounds;", "", "    private readonly IVisibilityModifier[] visibilityModifiers;", "", "    private readonly IDefaultVisibility defaultVisibility;", "", "    private readonly INotifyBecomingIdle[] becomingIdles;", "", "    private readonly INotifyIdle[] tickIdles;", "", "    private readonly IEnumerable<WPos> enabledTargetableWorldPositions;", "", "    private bool created;", "", "    private Lazy<ScriptActorInterface> luaInterface;", "", "    public Player Owner { get; internal set; }", "", "    public bool IsInWorld { get; internal set; }", "", "    public bool WillDispose { get; private set; }", "", "    public bool Disposed { get; private set; }", "", "    public Activity CurrentActivity", "    {", "        get", "        {", "            return Activity.SkipDoneActivities(currentActivity);", "        }"]}, {"name": "OpenRA/World.cs", "lines": ["", "namespace OpenRA;", "", "public sealed class World : IDisposable", "{", "    internal readonly TraitDictionary TraitDict = new TraitDictionary();", "", "    private readonly SortedDictionary<uint, Actor> actors = new SortedD...", "", "    private readonly List<IEffect> effects = new List<IEffect>();", "", "    private readonly List<IEffect> unpartitionedEffects = new List<IEff...", "", "    private readonly List<ISync> syncedEffects = new List<ISync>();", "", "    private readonly GameSettings gameSettings;", "", "    private readonly ModData modData;", "", "    private readonly Queue<Action<World>> frameEndActions = new Queue<A...", "", "    public readonly GameSpeed GameSpeed;", "", "    public readonly int Timestep;", "", "    public int ReplayTimestep;", "", "    internal readonly OrderManager OrderManager;", "", "    public readonly MersenneTwister SharedRandom;", "", "    public readonly MersenneTwister LocalRandom;", "", "    public LongBitSet<PlayerBitMask> AllPlayersMask;", "", "    public readonly LongBitSet<PlayerBitMask> NoPlayersMask;", "", "    public Player[] Players = Array.Empty<Player>();", "", "    private Player renderPlayer;", "", "    public readonly Actor WorldActor;", "", "    public readonly Map Map;", "", "    public readonly IActorMap ActorMap;", "", "    public readonly ScreenMap ScreenMap;", "", "    public readonly WorldType Type;", "", "    public readonly IValidateOrder[] OrderValidators;", "", "    private readonly INotifyPlayerDisconnected[] notifyDisconnected;", "", "    private readonly GameInformation gameInfo;", "", "    private readonly Type defaultOrderGeneratorType;", "", "    private IOrderGenerator orderGenerator;", "", "    public readonly ISelection Selection;", "", "    public readonly IControlGroups ControlGroups;", "", "    private bool wasLoadingGameSave;", "", "    private readonly Dictionary<int, MiniYaml> gameSaveTraitData = new ...", "", "    private uint nextAID;", "", "    public bool Disposing;", "", "    public Session LobbyInfo => OrderManager.LobbyInfo;", "", "    public Player LocalPlayer { get; private set; }", "", "    public bool IsGameOver { get; private set; }", "", "    public Player RenderPlayer", "    {", "        get", "        {", "            return renderPlayer;", "        }", "        set", "        {", "            if (LocalPlayer == null || LocalPlayer.UnlockedRenderPlayer)", "            {", "                renderPlayer = value;"]}];
+(function(){
+  const el=$('#scan'),state=$('#scanState'),foot=$('#scanFoot'),name=$('#scanName');
+  const ROWS=window.innerWidth<700?11:14,rand=n=>Math.floor(Math.random()*n);
+  const hex=()=>Array.from({length:8},()=>rand(256).toString(16).padStart(2,'0')).join(' ');
+  const bin=n=>Array.from({length:n},()=>rand(2)).join('');
+  let fi=0,front=0,total=0;
+  const nf=()=>STREAM[fi];
+  function fmt(n){return n.toLocaleString()}
+  function draw(){
+    const f=nf(),L=f.lines,rows=[];
+    const first=Math.max(0,Math.floor(front)-(ROWS-5));
+    for(let i=first;i<first+ROWS;i++){
+      const d=front-i;
+      if(i>=L.length)rows.push('');
+      else if(d>=6)rows.push(esc(L[i]));
+      else if(d<=-1)rows.push(i-front<ROWS-8?hex():'');
+      else{
+        const k=Math.max(0,Math.min(1,(d+1)/7)),n=Math.floor(L[i].length*k);
+        rows.push('<b>'+esc(L[i].slice(0,n))+'</b>'+esc(bin(Math.max(0,L[i].length-n)).slice(0,60)));
+      }
+    }
+    el.innerHTML=rows.join('\n');
+    name.textContent=f.name;
+    state.textContent=front>=L.length+4?'source recovered':'converting';
+    foot.textContent=fmt(total+Math.min(L.length,Math.floor(front)))+' lines of C# recovered so far';
+    front+=.32;
+    if(front>L.length+8){total+=L.length;fi=(fi+1)%STREAM.length;front=-3;if(fi===0)total=0}
+  }
+  if(matchMedia('(prefers-reduced-motion:reduce)').matches){front=STREAM[0].lines.length+9;draw();state.textContent='source recovered'}
+  else{draw();setInterval(draw,70)}
+})();
+
+/* intake */
+const tray=$('#tray'),file=$('#file');
+const openPicker=()=>file.click();
+tray.addEventListener('click',e=>{if(!e.target.closest('button'))openPicker()});
+tray.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();openPicker()}});
+$('#pick').onclick=openPicker;
+['dragenter','dragover'].forEach(ev=>tray.addEventListener(ev,e=>{e.preventDefault();tray.classList.add('over')}));
+['dragleave','drop'].forEach(ev=>tray.addEventListener(ev,e=>{e.preventDefault();tray.classList.remove('over')}));
+tray.addEventListener('drop',e=>{const f=e.dataTransfer.files[0];if(f)upload(f)});
+file.onchange=()=>file.files[0]&&upload(file.files[0]);
+$('#sample').onclick=async()=>begin(await (await fetch('/api/sample/snake',{method:'POST'})).json());
+$('#sampleOra').onclick=async()=>begin(await (await fetch('/api/sample/openra',{method:'POST'})).json());
+async function upload(f){
+  if(f.size>100*1024*1024){$('#hint').textContent='That file is over 100 MB.';return}
+  begin(await (await fetch('/api/upload',{method:'POST',headers:{'x-filename':encodeURIComponent(f.name)},body:f})).json());
+}
+function begin({id}){
+$('#result').style.display='none';$('#line').style.display='block';$('#err').textContent='';$('#appState').textContent='working';
+  render({steps:[]});poll(id);
+}
+function render(j){
+  $('#stations').innerHTML=STAGES.map(([id,name],i)=>{
+    const s=(j.steps||[]).find(x=>x.id===id),st=s?s.status:'pending';
+    const ic=st==='done'?'<i class="ph ph-check-circle"></i>':st==='failed'?'<i class="ph ph-x-circle"></i>':'';
+    return `<div class="st ${st}"><div class="n">${ic}0${i+1}</div><div class="t">${name}</div><div class="d">${esc(s?(s.detail||''):'')}</div></div>`;
+  }).join('');
+}
+async function poll(id){
+  const j=await (await fetch('/api/jobs/'+id)).json();render(j);
+  if(j.status==='running')return setTimeout(()=>poll(id),350);
+  if(j.status==='failed'){$('#err').textContent='Stopped: '+(j.error||'unknown error');$('#appState').textContent='stopped';return}
+  $('#appState').textContent='done';show(j,id);
+}
+
+/* result */
+const pct=x=>(x*100).toFixed(x>=.995?0:1)+'%';
+const cls=x=>x>=.95?'ok':x>=.75?'warn':'bad';
+function show(j,id){
+  const m=[],hasSrc=j.tokenSimilarity!=null,hasBeh=j.behavior&&j.behavior.length;
+  m.push([j.builds?'Yes':(j.partial?'Partial':'No'),j.builds?'ok':'bad','Rebuilt project compiles']);
+  if(hasBeh)m.push([j.behavior.filter(r=>r.same).length+'/'+j.behavior.length,cls(j.behaviorScore),'Checks with identical output']);
+  if(hasSrc){m.push([pct(j.tokenSimilarity),cls(j.tokenSimilarity),'Source token match']);m.push([pct(j.identifierRecall),cls(j.identifierRecall),'Type and member names recovered'])}
+  $('#metrics').innerHTML=m.map(([a,c,d])=>`<div class="met"><b class="${c}">${esc(a)}</b><span>${esc(d)}</span></div>`).join('');
+  let score=j.builds?(hasBeh?j.behaviorScore*.5+(hasSrc?j.tokenSimilarity*.3+j.identifierRecall*.2:.5):.6):0;
+  if(!hasSrc&&hasBeh&&j.builds)score=j.behaviorScore*.8;
+  if(j.partial)score=0;
+  $('#scoreSub').textContent=hasSrc?'Measured against the real source, which Unpack never saw.':(j.partial?'Native program: only strings were extracted, so there is nothing to score yet.':'No original source to compare, so the score reflects whether the rebuild compiles and behaves the same.');
+  animateScore(Math.round(score*100));
+  $('#dl').href=j.zip||'#';
+  const names=j.pairs?j.pairs.map(p=>p.name):Object.keys(j.files||{}).filter(n=>!/AssemblyInfo/.test(n)),orig=j.originalSource||null;
+  renderExtras(j);
+  $('#playSec').hidden=!j.playable;
+  if(j.playable)initGame(id,j.seed);
+  $('#srcSub').textContent=(orig||j.pairs)?'Left: the author’s real code. Right: what Unpack rebuilt from the compiled file. Highlighted lines are shared.':'Rebuilt source, file by file.';
+  $('#tabs').innerHTML=names.map((n,i)=>`<button class="tab" role="tab" aria-selected="${i===0}" data-f="${esc(n)}">${esc(n.split('/').pop())}</button>`).join('');
+  $('#tabs').onclick=e=>{const b=e.target.closest('.tab');if(!b)return;[...$('#tabs').children].forEach(x=>x.setAttribute('aria-selected',x===b));showFile(j,b.dataset.f,orig)};
+  if(names.length)showFile(j,names[0],orig);else $('#src').innerHTML='';
+  $('#result').style.display='block';
+  setTimeout(()=>$('#result').scrollIntoView({behavior:'smooth',block:'start'}),200);
+}
+function animateScore(n){
+  const arc=$('#arc'),num=$('#scoreNum'),C=540.4;
+  arc.style.strokeDashoffset=C;num.textContent='0';
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{arc.style.strokeDashoffset=C*(1-n/100)}));
+  const t0=performance.now();
+  (function tick(t){const p=Math.min(1,(t-t0)/1400);num.textContent=Math.round(n*(1-Math.pow(1-p,3)));if(p<1)requestAnimationFrame(tick)})(t0);
+}
+const norm=s=>s.replace(/\s+/g,' ').trim();
+function showFile(j,name,orig){
+  const pr=(j.pairs||[]).find(p=>p.name===name);
+  const rebuilt=(pr?pr.rebuilt:j.files[name]).split('\n');
+  const origTxt=pr?pr.original:orig;
+  const origSet=origTxt?new Set(origTxt.split('\n').map(norm).filter(l=>l.length>3)):null;
+  const lines=(arr,set)=>arr.map((l,i)=>`<span class="l ${set&&set.has(norm(l))&&norm(l).length>3?'hit':''}" data-n="${i+1}">${esc(l)||' '}</span>`).join('');
+  const rset=new Set(rebuilt.map(norm));
+  let html='';
+  if(origTxt){
+    html+=`<div><h4><span>Original source${pr?': '+esc(name):', whole project'}</span><em>ground truth</em></h4><pre class="codepane" id="cL">${lines(origTxt.split('\n'),rset)}</pre></div>`;
+    html+=`<div><h4><span>Rebuilt: ${esc(name.split('/').pop())}</span><em>from binary</em></h4><pre class="codepane" id="cR">${lines(rebuilt,origSet)}</pre></div>`;
+    $('#src').className='src';
+  }else{
+    html+=`<div><h4><span>Rebuilt: ${esc(name)}</span><em>from binary</em></h4><pre class="codepane">${lines(rebuilt,null)}</pre></div>`;
+    $('#src').className='src solo';
+  }
+  $('#src').innerHTML=html;
+  const L=$('#cL'),R=$('#cR');
+}
+const KIND={'null-overload':['Ambiguous null argument','The decompiler wrote a bare null where two overloads exist. Unpack casts it to the right type.','rule'],
+ 'constructor-attribute':['Lost startup marker','The decompiler dropped a marker on a constructor. The compiler never noticed, but the game crashed on start. Found by reading the compiled code.','rule'],
+ 'numeric-literal':['Number literal needs a type','A literal was left untyped, so Math.Max could not pick an overload. Unpack adds the cast.','rule'],
+ 'scoped-span':['Stack memory scope','A stack-allocated buffer escaped its scope. Unpack marks it scoped.','rule'],
+ 'missing-local-function':['Helper functions the decompiler dropped','Unpack read the raw compiled instructions and asked Claude to write the missing functions back in.','Claude']};
+function renderExtras(j){
+  const st=j.stats;
+  $('#statline').innerHTML=st?[`${st.assemblies} assemblies`,`${st.files.toLocaleString()} source files`,`${st.rebuilt_lines.toLocaleString()} lines rebuilt`,`${st.original_lines.toLocaleString()} lines in the original`,`${st.seconds} seconds`].map(x=>`<span>${x}</span>`).join(''):'';
+  const b=j.behavior||[];
+  $('#checksSec').hidden=!(j.stats&&b.length);
+  $('#checks').innerHTML=b.map(c=>`<div class="chk"><i class="ph ${c.same?'ph-check-circle ic ok':'ph-warning-circle ic no'}"></i><div><b>${esc(c.args)}</b><small>${esc(c.note||'')}</small></div><div class="v"><em>Original</em>${esc(c.original)}</div><div class="v"><em>Rebuilt</em>${esc(c.rebuilt)}</div></div>`).join('');
+  const rp=j.repairs;
+  $('#repairSec').hidden=!rp;
+  if(rp){
+    $('#repairSub').textContent=`Decompilers are not perfect. The rebuild hit ${rp.found} problems in ${Object.keys(rp.by_kind).length} patterns, and Unpack repaired all of them, including one the compiler could not see.`;
+    $('#repairs').innerHTML=Object.entries(rp.by_kind).map(([k,n])=>{const x=KIND[k]||[k,'',''];return `<div class="rep"><div class="n">${n}</div><div><b>${esc(x[0])}${x[2]==='Claude'?'<span class="by">fixed by Claude</span>':''}</b><small>${esc(x[1])}</small></div></div>`}).join('');
+  }
+}
+
+
+/* snake arena: stateless replay, both builds get the same seed and moves */
+let G=null;
+function parseFrame(t){
+  const L=t.replace(/\r/g,'').split('\n').filter(Boolean);if(L.length<2)return null;
+  const h=L[0].split(' ').map(Number);
+  return {w:h[0],h:h[1],score:h[2],state:h[3],food:{x:h[4],y:h[5]},body:L[1].split(' ').map(c=>{const q=c.split(',');return {x:+q[0],y:+q[1]}})};
+}
+function drawSnake(cv,f){
+  const c=cv.getContext('2d'),S=cv.width/f.w;
+  for(let y=0;y<f.h;y++)for(let x=0;x<f.w;x++){c.fillStyle=(x+y)%2?'#a2d149':'#aad751';c.fillRect(x*S,y*S,S+1,S+1)}
+  const fx=(f.food.x+.5)*S,fy=(f.food.y+.5)*S;
+  c.fillStyle='#e7471d';c.beginPath();c.arc(fx,fy+S*.04,S*.36,0,7);c.fill();
+  c.fillStyle='#2f7d32';c.beginPath();c.ellipse(fx+S*.12,fy-S*.34,S*.14,S*.07,-.6,0,7);c.fill();
+  const b=f.body,col=f.state?'#7f9be8':'#4e7cf6';
+  c.strokeStyle=col;c.fillStyle=col;c.lineCap='round';c.lineJoin='round';c.lineWidth=S*.7;
+  c.beginPath();b.forEach((p,i)=>{const X=(p.x+.5)*S,Y=(p.y+.5)*S;i?c.lineTo(X,Y):c.moveTo(X,Y)});c.stroke();
+  const hd=b[0],nx=b[1]||{x:hd.x-1,y:hd.y},dx=Math.sign(hd.x-nx.x),dy=Math.sign(hd.y-nx.y);
+  const hx=(hd.x+.5)*S,hy=(hd.y+.5)*S;c.beginPath();c.arc(hx,hy,S*.38,0,7);c.fill();
+  [[-1,1]].forEach(()=>{[-1,1].forEach(sd=>{
+    const ex=hx+dx*S*.1+(dy?sd*S*.17:0),ey=hy+dy*S*.1+(dx?sd*S*.17:0);
+    c.fillStyle='#fff';c.beginPath();c.arc(ex,ey,S*.13,0,7);c.fill();
+    c.fillStyle='#16233f';c.beginPath();c.arc(ex+dx*S*.04,ey+dy*S*.04,S*.065,0,7);c.fill()})});
+  if(f.state){c.fillStyle='rgba(20,40,10,.45)';c.fillRect(0,0,cv.width,cv.height);c.fillStyle='#fff';c.textAlign='center';c.font='700 '+S*1.1+'px Inter Tight,sans-serif';c.fillText(f.state===2?'You win':'Game over',cv.width/2,cv.height/2);c.font='500 '+S*.5+'px Inter,sans-serif';c.fillText('Press Start to play again',cv.width/2,cv.height/2+S*.9)}
+}
+function showFrames(r){
+  const a=parseFrame(r.original),b=parseFrame(r.rebuilt);
+  if(a){drawSnake($('#ca'),a);$('#snSa').textContent='Score '+a.score}
+  if(b){drawSnake($('#cb'),b);$('#snSb').textContent='Score '+b.score}
+  return b;
+}
+function initGame(id,seed){
+  if(G)G.stop=true;
+  $('#syncPill').textContent='Waiting';$('#syncPill').className='pill';$('#syncTxt').textContent='';
+  G={id,seed,moves:'',dir:'R',stop:false,run:false,ok:0,total:0};
+  fetchFrame(G,'.').then(r=>{if(r&&G)showFrames(r)});
+}
+async function fetchFrame(g,moves){
+  try{const r=await fetch(`/api/jobs/${g.id}/play?seed=${g.seed}&moves=${encodeURIComponent(moves)}`);return await r.json()}catch(e){return null}
+}
+async function startGame(d){
+  if(!G)return;const g=G;g.moves='';g.dir=d||'R';g.run=true;g.ok=0;g.total=0;
+  while(!g.stop&&g.run&&g.moves.length<900){
+    const t0=performance.now();
+    g.moves+=g.dir;
+    const r=await fetchFrame(g,g.moves);if(!r||g.stop)break;
+    const b=showFrames(r);
+    g.total++;if(r.match)g.ok++;
+    const pill=$('#syncPill');pill.textContent=r.match?'In sync':'Drifted';pill.className='pill '+(r.match?'ok':'bad');
+    $('#syncTxt').textContent=`${g.ok} of ${g.total} frames identical`;
+    if(b&&b.state){g.run=false;$('#start').innerHTML='<i class="ph ph-arrow-counter-clockwise"></i> Play again'}
+    await new Promise(res=>setTimeout(res,Math.max(0,170-(performance.now()-t0))));
+  }
+}
+$('#start').onclick=()=>{if(G){G.run=false;$('#start').innerHTML='<i class="ph ph-play"></i> Start';setTimeout(startGame,60)}};
+const KEYS={ArrowUp:'U',w:'U',W:'U',ArrowDown:'D',s:'D',S:'D',ArrowLeft:'L',a:'L',A:'L',ArrowRight:'R',d:'R',D:'R'};
+const OPP={U:'D',D:'U',L:'R',R:'L'};
+function turn(k){if(!G)return;if(!G.run){setTimeout(()=>startGame(k==='L'?'R':k),0);return}if(k!==OPP[G.dir])G.dir=k}
+addEventListener('keydown',e=>{
+  if(!G||$('#playSec').hidden)return;
+  const r=$('#playSec').getBoundingClientRect();if(r.bottom<0||r.top>innerHeight)return;
+  if(e.key===' '){e.preventDefault();$('#start').click();return}
+  const k=KEYS[e.key];if(k){e.preventDefault();turn(k)}
+});
+$('#pad').onclick=e=>{const b=e.target.closest('button');if(b)turn(b.dataset.k)};
+let tx=0,ty=0;
+$('#playSec').addEventListener('touchstart',e=>{tx=e.touches[0].clientX;ty=e.touches[0].clientY},{passive:true});
+$('#playSec').addEventListener('touchend',e=>{const dx=e.changedTouches[0].clientX-tx,dy=e.changedTouches[0].clientY-ty;if(Math.max(Math.abs(dx),Math.abs(dy))<24)return;turn(Math.abs(dx)>Math.abs(dy)?(dx>0?'R':'L'):(dy>0?'D':'U'))},{passive:true});
+
+/* live engine panel */
+(()=>{
+  const chips=[...document.querySelectorAll('#lvChips .chip')];let busy=0;
+  const fmt=n=>(n/1000).toFixed(1)+' s';
+  chips.forEach(b=>b.onclick=async()=>{
+    if(busy)return;busy=1;chips.forEach(c=>c.setAttribute('aria-pressed',c===b));
+    $('#lvOut').hidden=false;$('#lvState').textContent='running both engines';
+    const O=$('#lvO'),R=$('#lvR');O.textContent=R.textContent='';O.classList.add('sk');R.classList.add('sk');
+    $('#lvVerdict').innerHTML='';$('#lvMsO').textContent=$('#lvMsR').textContent='';
+    try{
+      const d=await (await fetch('/api/openra/run?check='+b.dataset.c)).json();
+      if(d.error)throw new Error(d.error);
+      O.classList.remove('sk');R.classList.remove('sk');
+      O.textContent=d.original;R.textContent=d.rebuilt;
+      $('#lvMsO').textContent=fmt(d.msOriginal);$('#lvMsR').textContent=fmt(d.msRebuilt);
+      const ok=d.same,soft=!ok&&d.sameContent;
+      $('#lvVerdict').innerHTML=`<span class="pill ${ok?'':'warn'}">${ok?'Identical output':soft?'Same content, different order':'Different'}</span><span>${d.lines.toLocaleString()} lines, ${d.bytes.toLocaleString()} bytes</span>`+(d.firstDiff?`<small>first difference at line ${d.firstDiff.line}</small>`:'')+`<small>fingerprint ${d.hash}</small>`;
+      $('#lvState').textContent='done';
+    }catch(e){O.classList.remove('sk');R.classList.remove('sk');$('#lvState').textContent='error';$('#lvVerdict').textContent=String(e.message||e)}
+    busy=0;
+  });
+  const row=t=>`<div class="tr"><b>${esc(t.name)}</b><em>${esc(t.ns)} · ${t.props} settings · needs ${t.requires} other traits</em><br>${esc(t.desc)}</div>`;
+  $('#lvForm').onsubmit=async e=>{
+    e.preventDefault();const q=$('#lvQ').value.trim();$('#lvSV').textContent='';
+    try{
+      const d=await (await fetch('/api/openra/search?q='+encodeURIComponent(q))).json();
+      if(d.error){$('#lvSV').textContent=d.error;return}
+      $('#lvSearch').hidden=false;
+      $('#lvSa').innerHTML=d.original.map(row).join('')||'<div class="tr">No match</div>';
+      $('#lvSb').innerHTML=d.rebuilt.map(row).join('')||'<div class="tr">No match</div>';
+      $('#lvSO').textContent=d.original.length+' found';$('#lvSR').textContent=d.rebuilt.length+' found';
+      $('#lvSV').innerHTML=`<span class="pill ${d.same?'':'warn'}">${d.same?'Identical answers':'Different answers'}</span>`;
+    }catch(err){$('#lvSV').textContent='Search failed'}
+  };
+})();
+
+/* gameplay videos: keep the two players in step */
+(()=>{
+  const a=$('#vA'),b=$('#vB'),btn=$('#vPlay');if(!a||!b)return;
+  let on=false;
+  const set=()=>{btn.innerHTML=on?'<i class="ph ph-pause"></i> Pause both':'<i class="ph ph-play"></i> Play both'};
+  btn.onclick=async()=>{
+    if(on){a.pause();b.pause();on=false;set();return}
+    if(Math.abs(a.currentTime-b.currentTime)>.2)b.currentTime=a.currentTime;
+    try{await Promise.all([a.play(),b.play()]);on=true}catch(e){}
+    set();
+  };
+  a.addEventListener('timeupdate',()=>{if(on&&Math.abs(a.currentTime-b.currentTime)>.35)b.currentTime=a.currentTime});
+  a.addEventListener('seeked',()=>{b.currentTime=a.currentTime});
+  if('IntersectionObserver' in window)new IntersectionObserver(es=>{es.forEach(e=>{if(!e.isIntersecting&&on){a.pause();b.pause();on=false;set()}})},{threshold:.1}).observe($('#vids'));
+})();
+</script>
+</body>
+</html>
